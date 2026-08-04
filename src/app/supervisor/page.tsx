@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isBefore, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Shield, LogOut, Users, Clock, RefreshCw } from 'lucide-react';
 import { USERS } from '@/lib/users';
@@ -55,20 +55,26 @@ export default function SupervisorPage() {
 
       const estagiarios = USERS.filter(u => u.role === 'estagiario');
       const statuses: UserStatus[] = estagiarios.map(user => {
+        const internshipStart = user.startDate ? parseISO(user.startDate + 'T00:00:00') : null;
+
         const userTodayPunches = todayPunches.filter(p => p.userId === user.id);
         const userWeekPunches = weekPunches.filter(p => p.userId === user.id);
 
         const todayWorked = calculateDailyMinutes(userTodayPunches);
-        const todayExpected = getDayExpectedMinutes(now);
+        // Se o dia de hoje for anterior ao inicio do estagio, nao ha expediente esperado
+        const todayExpected = internshipStart && isBefore(now, internshipStart)
+          ? 0
+          : getDayExpectedMinutes(now);
         const isPresent = userTodayPunches.length % 2 === 1; // odd = checked in
 
-        // Calculate week balance
+        // Calculate week balance, ignorando dias anteriores ao inicio do estagio
         const uniqueDays = [...new Set(userWeekPunches.map(p => p.date))];
         let weekWorked = 0;
         let weekExpected = 0;
         for (const day of uniqueDays) {
-          const dayPunches = userWeekPunches.filter(p => p.date === day);
           const dayDate = new Date(day + 'T12:00:00');
+          if (internshipStart && isBefore(dayDate, internshipStart)) continue;
+          const dayPunches = userWeekPunches.filter(p => p.date === day);
           weekWorked += calculateDailyMinutes(dayPunches);
           weekExpected += getDayExpectedMinutes(dayDate);
         }

@@ -12,6 +12,7 @@ export interface AppUser {
   email: string; // for web login
   password: string; // for web login
   qrCode: string; // unique QR code value
+  startDate: string; // YYYY-MM-DD - data de inicio do estagio/atuacao
 }
 
 export const USERS: AppUser[] = [
@@ -23,6 +24,7 @@ export const USERS: AppUser[] = [
     email: 'zadoque@estagio.local',
     password: 'Estagio@2026',
     qrCode: 'PONTO-ZADOQUE-A7F3K9',
+    startDate: '2026-07-03',
   },
   {
     id: 'artur',
@@ -32,6 +34,7 @@ export const USERS: AppUser[] = [
     email: 'artur@estagio.local',
     password: 'Estagio@2026',
     qrCode: 'PONTO-ARTUR-B2M8P4',
+    startDate: '2026-07-03',
   },
   {
     id: 'marilia',
@@ -41,6 +44,7 @@ export const USERS: AppUser[] = [
     email: 'marilia@estagio.local',
     password: 'Supervisor@2026',
     qrCode: 'PONTO-MARILIA-C5R1N6',
+    startDate: '2026-07-03',
   },
 ];
 

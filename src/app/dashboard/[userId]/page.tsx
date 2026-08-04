@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, subWeeks, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Clock, TrendingUp, TrendingDown, LogOut, Calendar, CheckCircle } from 'lucide-react';
 import { getUserById } from '@/lib/users';
@@ -48,8 +48,17 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const now = new Date();
-      const weekStart = startOfWeek(subWeeks(now, 3), { weekStartsOn: 1 });
+
+      // Data de inicio do estagio deste usuario (nunca contar dias anteriores a ela)
+      const internshipStart = user?.startDate
+        ? parseISO(user.startDate + 'T00:00:00')
+        : startOfWeek(subWeeks(now, 3), { weekStartsOn: 1 });
+
+      const fourWeeksAgo = startOfWeek(subWeeks(now, 3), { weekStartsOn: 1 });
+      // O inicio do periodo analisado eh o mais recente entre "4 semanas atras" e o inicio do estagio
+      const weekStart = isBefore(fourWeeksAgo, internshipStart) ? internshipStart : fourWeeksAgo;
       const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
       const startStr = format(weekStart, 'yyyy-MM-dd');
       const endStr = format(weekEnd, 'yyyy-MM-dd');
 
@@ -58,12 +67,15 @@ export default function DashboardPage() {
       const todayRecs = allRecords.filter(r => r.date === today);
       setTodayRecords(todayRecs);
 
-      // Build day summaries for the past 4 weeks
+      // Build day summaries apenas a partir do inicio do estagio
       const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
       const summaries: DaySummary[] = [];
       let balance = 0;
 
       for (const day of days) {
+        // Nunca contar dias anteriores ao inicio do estagio
+        if (isBefore(day, internshipStart)) continue;
+
         const dayName = DAY_NAMES[day.getDay()];
         if (['saturday', 'sunday'].includes(dayName)) continue;
         const dateStr = format(day, 'yyyy-MM-dd');
@@ -131,7 +143,9 @@ export default function DashboardPage() {
           }`}>
             {formatMinutes(totalBalance)}
           </div>
-          <p className="text-slate-400 text-sm mt-1">Saldo acumulado dos últimos 4 semanas</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Saldo acumulado desde {user.startDate ? format(parseISO(user.startDate + 'T00:00:00'), "dd/MM/yyyy") : 'o início'}
+          </p>
         </div>
 
         {/* Today's punches */}
