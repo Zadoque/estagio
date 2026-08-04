@@ -24,7 +24,7 @@ export const USERS: AppUser[] = [
     email: 'zadoque@estagio.local',
     password: 'Estagio@2026',
     qrCode: 'PONTO-ZADOQUE-A7F3K9',
-    startDate: '2026-07-03',
+    startDate: '2026-08-03',
   },
   {
     id: 'artur',
@@ -34,7 +34,7 @@ export const USERS: AppUser[] = [
     email: 'artur@estagio.local',
     password: 'Estagio@2026',
     qrCode: 'PONTO-ARTUR-B2M8P4',
-    startDate: '2026-07-03',
+    startDate: '2026-08-03',
   },
   {
     id: 'marilia',
