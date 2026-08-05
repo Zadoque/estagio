@@ -1,122 +1,112 @@
+// src/app/dashboard/[userId]/page.tsx -- Linha 1
 "use client";
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, subWeeks, parseISO, isBefore } from 'date-fns';
+
+import { useState, useEffect, use } from 'react';
+import { useRouter } from 'next/navigation';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock, TrendingUp, TrendingDown, LogOut, Calendar, CheckCircle } from 'lucide-react';
-import { getUserById } from '@/lib/users';
-import { getPunchesForUser } from '@/lib/firestore';
-import {
-  calculateDailyMinutes,
-  getDayExpectedMinutes,
-  formatMinutes,
-  formatMinutesAbs,
-  getWeeklyExpectedMinutes,
-  DAY_NAMES,
-  type PunchRecord,
-} from '@/lib/schedule';
+import { Clock, TrendingUp, TrendingDown, LogOut, Calendar, QrCode, Lock } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 
-interface DaySummary {
-  date: Date;
-  dateStr: string;
-  expected: number;
-  worked: number;
-  balance: number;
-  records: PunchRecord[];
-}
+// Ajuste os imports abaixo dependendo do seu projeto
+import { auth, db, functions } from '@/lib/firebase'; 
+import { httpsCallable } from 'firebase/functions';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
+import { formatMinutes, formatMinutesAbs } from '@/lib/schedule';
 
-export default function DashboardPage() {
-  const params = useParams();
+export default function DashboardPage({ params }: { params: Promise<{ userId: string }> }) {
+  const { userId } = use(params);
   const router = useRouter();
-  const userId = params.userId as string;
-  const user = getUserById(userId);
 
-  const [daySummaries, setDaySummaries] = useState<DaySummary[]>([]);
+  const [userData, setUserData] = useState<any>(null);
+  const [daySummaries, setDaySummaries] = useState<any[]>([]);
   const [totalBalance, setTotalBalance] = useState(0);
+  const [todayRecords, setTodayRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [todayRecords, setTodayRecords] = useState<PunchRecord[]>([]);
+  const [newPin, setNewPin] = useState("");
 
   useEffect(() => {
-    const session = sessionStorage.getItem('currentUser');
-    if (!session) { router.push('/login?role=estagiario'); return; }
-    const s = JSON.parse(session);
-    if (s.id !== userId) { router.push('/login?role=estagiario'); return; }
-    loadData();
-  }, [userId]);
+    // SEGURANÇA: Bloqueia o acesso direto pela URL caso o usuário não esteja logado
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push('/login');
+      } else {
+        loadData();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [userId, router]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const now = new Date();
-
-      // Data de inicio do estagio deste usuario (nunca contar dias anteriores a ela)
-      const internshipStart = user?.startDate
-        ? parseISO(user.startDate + 'T00:00:00')
-        : startOfWeek(subWeeks(now, 3), { weekStartsOn: 1 });
-
-      const fourWeeksAgo = startOfWeek(subWeeks(now, 3), { weekStartsOn: 1 });
-      // O inicio do periodo analisado eh o mais recente entre "4 semanas atras" e o inicio do estagio
-      const weekStart = isBefore(fourWeeksAgo, internshipStart) ? internshipStart : fourWeeksAgo;
-      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-
-      const startStr = format(weekStart, 'yyyy-MM-dd');
-      const endStr = format(weekEnd, 'yyyy-MM-dd');
-
-      const allRecords = await getPunchesForUser(userId, startStr, endStr);
-      const today = format(now, 'yyyy-MM-dd');
-      const todayRecs = allRecords.filter(r => r.date === today);
-      setTodayRecords(todayRecs);
-
-      // Build day summaries apenas a partir do inicio do estagio
-      const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
-      const summaries: DaySummary[] = [];
-      let balance = 0;
-
-      for (const day of days) {
-        // Nunca contar dias anteriores ao inicio do estagio
-        if (isBefore(day, internshipStart)) continue;
-
-        const dayName = DAY_NAMES[day.getDay()];
-        if (['saturday', 'sunday'].includes(dayName)) continue;
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const dayRecords = allRecords.filter(r => r.date === dateStr);
-        const expected = getDayExpectedMinutes(day);
-        const worked = calculateDailyMinutes(dayRecords);
-        const dayBalance = worked - expected;
-        // Only count past days (not future)
-        if (day <= now) balance += dayBalance;
-        summaries.push({ date: day, dateStr, expected, worked, balance: dayBalance, records: dayRecords });
+      const getDashboardData = httpsCallable(functions, 'getDashboardData');
+      const response = await getDashboardData({ userId });
+      
+      const data = response.data as any;
+      
+      setUserData(data.userData);
+      setTotalBalance(data.totalBalance);
+      setTodayRecords(data.todayRecords);
+      setDaySummaries(data.daySummaries);
+    } catch (e: any) {
+      console.error("Erro ao carregar dados:", e);
+      if (e.message.includes("permissão") || e.message.includes("logado")) {
+        alert(e.message);
+        router.push('/login');
       }
-
-      setDaySummaries(summaries.reverse());
-      setTotalBalance(balance);
-    } catch (e) {
-      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('currentUser');
-    router.push('/');
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
   };
 
-  if (!user) return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">Usuário não encontrado.</div>;
+  const handleChangePin = async () => {
+    if (newPin.length < 4) return alert("O PIN deve conter pelo menos 4 caracteres.");
+    try {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { pin: newPin });
+      alert("Seu PIN foi alterado com sucesso!");
+      setNewPin("");
+    } catch (e) {
+      alert("Erro ao alterar o PIN.");
+    }
+  };
+
+  const handleDownloadQrCode = () => {
+    const canvas = document.getElementById('qr-code-canvas') as HTMLCanvasElement;
+    if (canvas) {
+      const pngUrl = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngUrl;
+      downloadLink.download = `Cracha_QRCode_${userData.name.replace(/\s+/g, '_')}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  };
+
+  if (loading) return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">Carregando painel...</div>;
+  if (!userData) return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">Acesso Negado ou Usuário Inexistente.</div>;
 
   const isPositive = totalBalance >= 0;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      {/* Header */}
+    <div className="min-h-screen bg-slate-900 text-white pb-10">
       <header className="bg-slate-800 border-b border-slate-700 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-lg">
-              {user.name[0]}
+              {userData.name ? userData.name[0] : 'U'}
             </div>
             <div>
-              <h1 className="font-semibold">{user.name}</h1>
+              <h1 className="font-semibold">{userData.name}</h1>
               <p className="text-slate-400 text-xs">Estagiário</p>
             </div>
           </div>
@@ -127,8 +117,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Bank of Hours */}
+      <main className="max-w-2xl mx-auto p-4 space-y-6">
+        
+        {/* Painel de Horas */}
         <div className={`rounded-2xl p-6 ${
           isPositive ? 'bg-green-900/30 border border-green-700/30' : 'bg-red-900/30 border border-red-700/30'
         }`}>
@@ -143,12 +134,59 @@ export default function DashboardPage() {
           }`}>
             {formatMinutes(totalBalance)}
           </div>
-          <p className="text-slate-400 text-sm mt-1">
-            Saldo acumulado desde {user.startDate ? format(parseISO(user.startDate + 'T00:00:00'), "dd/MM/yyyy") : 'o início'}
-          </p>
         </div>
 
-        {/* Today's punches */}
+        {/* Controles: Crachá e Segurança */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex flex-col items-center justify-between">
+            <div className="flex flex-col items-center w-full">
+              <div className="flex items-center gap-2 mb-4 w-full">
+                <QrCode className="w-5 h-5 text-blue-400" />
+                <h3 className="font-semibold">Crachá / QR Code</h3>
+              </div>
+              <div className="bg-white p-2 rounded-lg mb-4">
+                <QRCodeCanvas 
+                  id="qr-code-canvas" 
+                  value={userData.qrCode || "Sem-QR-Code"} 
+                  size={140} 
+                  level={"H"} 
+                />
+              </div>
+            </div>
+            <button 
+              onClick={handleDownloadQrCode}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition"
+            >
+              Baixar Imagem
+            </button>
+          </div>
+
+          <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Lock className="w-5 h-5 text-blue-400" />
+                <h3 className="font-semibold">Pin para bater ponto</h3>
+              </div>
+              <p className="text-sm text-slate-400 mb-4">Atualize a senha (PIN) que você utiliza no totem físico.</p>
+              
+              <input 
+                type="password" 
+                placeholder="Digite o novo PIN" 
+                value={newPin} 
+                onChange={(e) => setNewPin(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 mb-4"
+              />
+            </div>
+            <button 
+              onClick={handleChangePin}
+              className="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm font-medium transition"
+            >
+              Salvar Novo PIN
+            </button>
+          </div>
+        </div>
+
+        {/* Registros de Hoje */}
         {todayRecords.length > 0 && (
           <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700">
             <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -157,56 +195,54 @@ export default function DashboardPage() {
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {todayRecords.map((r, i) => (
-                <div key={r.id} className={`rounded-xl px-3 py-2 text-sm ${
+                <div key={r.id || i} className={`rounded-xl px-3 py-2 text-sm ${
                   r.type === 'entry' ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'
                 }`}>
                   <span className="font-medium">{r.type === 'entry' ? '▶ Entrada' : '◼ Saída'}</span>
-                  <span className="ml-2">{format(r.timestamp, 'HH:mm')}</span>
+                  <span className="ml-2">{format(parseISO(r.timestamp), 'HH:mm')}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Daily History */}
+        {/* Histórico */}
         <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-blue-400" />
             <h3 className="font-semibold">Histórico de Dias</h3>
           </div>
-          {loading ? (
-            <div className="p-8 text-center text-slate-400">Carregando...</div>
-          ) : (
-            <div className="divide-y divide-slate-700">
-              {daySummaries.slice(0, 20).map(day => (
-                <div key={day.dateStr} className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-sm capitalize">
-                      {format(day.date, "EEE, dd/MM", { locale: ptBR })}
-                    </div>
-                    <div className="text-slate-400 text-xs">
-                      {day.expected > 0 ? `Esperado: ${formatMinutesAbs(day.expected)}` : 'Sem expediente'}
-                    </div>
+          
+          <div className="divide-y divide-slate-700">
+            {daySummaries.slice(0, 20).map(day => (
+              <div key={day.dateStr} className="px-4 py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-sm capitalize">
+                    {format(parseISO(day.date), "EEE, dd/MM", { locale: ptBR })}
                   </div>
-                  <div className="text-right">
-                    {day.expected > 0 ? (
-                      <>
-                        <div className="text-sm">{formatMinutesAbs(day.worked)} trabalhadas</div>
-                        <div className={`text-xs font-mono ${
-                          day.balance >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {formatMinutes(day.balance)}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-slate-500 text-xs">—</div>
-                    )}
+                  <div className="text-slate-400 text-xs">
+                    {day.expected > 0 ? `Esperado: ${formatMinutesAbs(day.expected)}` : 'Sem expediente'}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="text-right">
+                  {day.expected > 0 ? (
+                    <>
+                      <div className="text-sm">{formatMinutesAbs(day.worked)} trabalhadas</div>
+                      <div className={`text-xs font-mono ${
+                        day.balance >= 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {formatMinutes(day.balance)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-slate-500 text-xs">—</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
       </main>
     </div>
   );
