@@ -1,4 +1,13 @@
-// functions/src/index.ts -- Linha 1
+// functions/src/index.ts
+
+// CORRECAO: Forca o timezone do processo Node.js para Brasilia ANTES de qualquer
+// calculo de data. Sem isso, o runtime das Cloud Functions roda em UTC por padrao,
+// o que faz getDay()/format() calcularem o dia da semana 3h adiantados em relacao
+// ao horario de Brasilia -- e como UTC esta ADIANTE do horario local (UTC-3), a
+// meia-noite de segunda-feira em UTC ainda e domingo 21h em Brasilia, deslocando
+// toda a semana em -1 dia (domingo em vez de segunda, quinta em vez de sexta).
+process.env.TZ = "America/Sao_Paulo";
+
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, subWeeks, parseISO, isBefore } from "date-fns";
@@ -8,10 +17,20 @@ const db = admin.firestore();
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
+// Carga horaria real por dia da semana (22h semanais), alinhada com src/lib/schedule.ts
+// do frontend. O valor generico anterior (360 min para todo dia util) nao refletia
+// a jornada real de Segunda/Quarta/Sexta (240/240/120 min).
+const EXPECTED_MINUTES_BY_DAY: Record<string, number> = {
+  monday: 240,
+  tuesday: 360,
+  wednesday: 240,
+  thursday: 360,
+  friday: 120,
+};
+
 function getDayExpectedMinutes(day: Date): number {
   const dayName = DAY_NAMES[day.getDay()];
-  if (['saturday', 'sunday'].includes(dayName)) return 0;
-  return 360; 
+  return EXPECTED_MINUTES_BY_DAY[dayName] ?? 0;
 }
 
 function calculateDailyMinutes(records: any[]): number {
@@ -29,36 +48,36 @@ function calculateDailyMinutes(records: any[]): number {
       lastEntry = null;
     }
   }
-  // Correção: Arredondando para evitar dízimas (ex: 4.652633333333313m)
+  // Correcao: Arredondando para evitar dizimas (ex: 4.652633333333313m)
   return Math.round(totalMinutes);
 }
 
 export const getDashboardData = functions.https.onCall(async (request) => {
-  // SEGURANÇA: Verifica se a requisição veio de um usuário logado no Firebase Auth
+  // SEGURANCA: Verifica se a requisicao veio de um usuario logado no Firebase Auth
   if (!request.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Você precisa estar logado para acessar os dados.");
+    throw new functions.https.HttpsError("unauthenticated", "Voce precisa estar logado para acessar os dados.");
   }
 
   const { userId } = request.data;
 
   if (!userId) {
-    throw new functions.https.HttpsError("invalid-argument", "O ID do usuário é obrigatório.");
+    throw new functions.https.HttpsError("invalid-argument", "O ID do usuario e obrigatorio.");
   }
 
   try {
-    // SEGURANÇA: Verifica se quem está pedindo os dados é o próprio dono ou uma supervisora
+    // SEGURANCA: Verifica se quem esta pedindo os dados e o proprio dono ou uma supervisora
     const callerRef = await db.collection("users").doc(request.auth.uid).get();
     const callerData = callerRef.data();
-    
+
     if (request.auth.uid !== userId && callerData?.role !== "supervisora") {
-      throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para ver este painel.");
+      throw new functions.https.HttpsError("permission-denied", "Voce nao tem permissao para ver este painel.");
     }
 
     const now = new Date();
-    
+
     const userDoc = await db.collection("users").doc(userId).get();
     if (!userDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "Usuário não encontrado.");
+      throw new functions.https.HttpsError("not-found", "Usuario nao encontrado.");
     }
     const userData = userDoc.data();
 
@@ -78,13 +97,13 @@ export const getDashboardData = functions.https.onCall(async (request) => {
 
     const allRecords = punchesSnapshot.docs.map(doc => {
       const data = doc.data();
-      const recordDate = data.timestamp.toDate(); 
-      
+      const recordDate = data.timestamp.toDate();
+
       return {
         id: doc.id,
         ...data,
-        timestamp: recordDate.toISOString(), 
-        date: format(recordDate, 'yyyy-MM-dd') 
+        timestamp: recordDate.toISOString(),
+        date: format(recordDate, 'yyyy-MM-dd')
       };
     });
 
@@ -127,8 +146,8 @@ export const getDashboardData = functions.https.onCall(async (request) => {
     };
 
   } catch (error) {
-    console.error("Erro na função getDashboardData:", error);
-    // Repassa o erro de permissão para o front-end exibir adequadamente
+    console.error("Erro na funcao getDashboardData:", error);
+    // Repassa o erro de permissao para o front-end exibir adequadamente
     if (error instanceof functions.https.HttpsError) throw error;
     throw new functions.https.HttpsError("internal", "Erro ao processar os dados do painel.");
   }
