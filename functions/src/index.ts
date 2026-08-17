@@ -39,7 +39,10 @@ function hashValue(value: string): string {
 function getClientIp(request: any): string {
   if (request.rawRequest.ip) return request.rawRequest.ip;
   const forwarded = request.rawRequest.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded) return forwarded.split(",").at(-1)?.trim() || "unknown";
+  if (typeof forwarded === "string" && forwarded) {
+    const forwardedParts = forwarded.split(",");
+    return forwardedParts[forwardedParts.length - 1]?.trim() || "unknown";
+  }
   const realIp = request.rawRequest.headers["x-real-ip"];
   if (typeof realIp === "string" && realIp) return realIp.trim();
   return "unknown";
