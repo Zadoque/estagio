@@ -51,15 +51,12 @@ function requireSupervisor(request: any): string {
 
 async function assertSupervisor(uid: string): Promise<void> {
   const supervisor = await db.collection("users").doc(uid).get();
-  if (!supervisor.exists || supervisor.data()?.role !== "supervisora") {
-    throw new functions.https.HttpsError("permission-denied", "Apenas supervisoras podem realizar esta operacao.");
-  }
+  if (!supervisor.exists || supervisor.data()?.role !== "supervisora") throw new functions.https.HttpsError("permission-denied", "Apenas supervisoras podem realizar esta operacao.");
 }
 
 export const registerPunch = functions.https.onCall(async (request) => {
   const pin = typeof request.data?.pin === "string" ? request.data.pin.trim() : "";
   if (!/^\d{4}$/.test(pin)) throw new functions.https.HttpsError("invalid-argument", "O PIN deve conter exatamente 4 digitos.");
-
   const ip = getClientIp(request);
   const pinLimitRef = db.collection("punchRateLimits").doc(`pin_${hashValue(pin)}`);
   const ipLimitRef = db.collection("punchRateLimits").doc(`ip_${hashValue(ip)}`);
@@ -72,23 +69,18 @@ export const registerPunch = functions.https.onCall(async (request) => {
       const pinLimitSnapshot = await transaction.get(pinLimitRef);
       const ipLimitSnapshot = await transaction.get(ipLimitRef);
       const pinLimit = pinLimitSnapshot.data();
-
       if (pinLimit?.lastAcceptedAt) {
         const elapsed = now.toMillis() - pinLimit.lastAcceptedAt.toMillis();
-        if (elapsed < 300000) {
-          throw new functions.https.HttpsError("resource-exhausted", "Este PIN ja foi registrado. Aguarde 5 minutos para registrar novamente.", {retryAfterSeconds: Math.ceil((300000 - elapsed) / 1000)});
-        }
+        if (elapsed < 300000) throw new functions.https.HttpsError("resource-exhausted", "Este PIN ja foi registrado. Aguarde 5 minutos para registrar novamente.", {retryAfterSeconds: Math.ceil((300000 - elapsed) / 1000)});
       }
 
       const ipLimit = ipLimitSnapshot.data();
       const windowStart = ipLimit?.windowStart?.toMillis?.() ?? 0;
       const windowElapsed = now.toMillis() - windowStart;
       const requestCount = windowElapsed >= 60000 ? 0 : (ipLimit?.count ?? 0);
-      if (requestCount >= 10) {
-        throw new functions.https.HttpsError("resource-exhausted", "Muitas tentativas deste computador. Aguarde um minuto e tente novamente.", {retryAfterSeconds: Math.ceil((60000 - windowElapsed) / 1000)});
-      }
-
+      if (requestCount >= 10) throw new functions.https.HttpsError("resource-exhausted", "Muitas tentativas deste computador. Aguarde um minuto e tente novamente.", {retryAfterSeconds: Math.ceil((60000 - windowElapsed) / 1000)});
       transaction.set(ipLimitRef, {count: requestCount + 1, windowStart: requestCount === 0 ? now : ipLimit.windowStart, updatedAt: now});
+
       if (!userDoc) throw new functions.https.HttpsError("not-found", "PIN nao encontrado.");
       const user = userDoc.data();
       if (user?.role !== "estagiario") throw new functions.https.HttpsError("permission-denied", "Apenas estagiarios podem bater ponto.");
@@ -137,7 +129,10 @@ export const listInterns = functions.https.onCall(async (request) => {
   const supervisorUid = requireSupervisor(request);
   await assertSupervisor(supervisorUid);
   const snapshot = await db.collection("users").where("role", "==", "estagiario").get();
-  return snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {id: doc.id, name: data.name, email: data.email, qrCode: data.qrCode, role: data.role, startDate: data.startDate};
+  });
 });
 
 export const getDashboardData = functions.https.onCall(async (request) => {
