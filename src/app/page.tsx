@@ -15,13 +15,19 @@ export default function Home() {
         </div>
         <div className="space-y-4">
           <button onClick={() => router.push("/bater-ponto")} className="w-full bg-[#2A2A86] hover:bg-[#F2A900] hover:text-[#1B365D] border border-white/10 rounded-2xl p-6 text-left transition-all group">
-            <div className="flex items-center gap-4"><div className="w-12 h-12 bg-[#F2A900] text-[#1B365D] rounded-xl flex items-center justify-center"><Monitor className="w-6 h-6" /></div><div><h2 className="font-semibold text-lg">Bater ponto</h2><p className="text-white/60 group-hover:text-[#1B365D]/70 text-sm">Registre entrada ou saída usando seu PIN</p></div></div>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#F2A900] text-[#1B365D] rounded-xl flex items-center justify-center">
+                <Monitor className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-lg text-white group-hover:text-[#1B365D]">Bater ponto</h2><p className="text-white/60 group-hover:text-[#1B365D]/70 text-sm">Registre entrada ou saída usando seu PIN</p>
+                </div></div>
           </button>
           <button onClick={() => router.push("/login?role=estagiario")} className="w-full bg-[#2A2A86] hover:bg-[#F2A900] hover:text-[#1B365D] border border-white/10 rounded-2xl p-6 text-left transition-all group">
-            <div className="flex items-center gap-4"><div className="w-12 h-12 bg-[#1B365D] rounded-xl flex items-center justify-center"><User className="w-6 h-6 text-white" /></div><div><h2 className="font-semibold text-lg">Estagiário</h2><p className="text-white/60 group-hover:text-[#1B365D]/70 text-sm">Veja seus registros e banco de horas</p></div></div>
+            <div className="flex items-center gap-4"><div className="w-12 h-12 bg-[#1B365D] rounded-xl flex items-center justify-center"><User className="w-6 h-6 text-white" /></div><div><h2 className="font-semibold text-lg text-white group-hover:text-[#1B365D]">Estagiário</h2><p className="text-white/60 group-hover:text-[#1B365D]/70 text-sm">Veja seus registros e banco de horas</p></div></div>
           </button>
           <button onClick={() => router.push("/login?role=supervisor")} className="w-full bg-[#2A2A86] hover:bg-[#F2A900] hover:text-[#1B365D] border border-white/10 rounded-2xl p-6 text-left transition-all group">
-            <div className="flex items-center gap-4"><div className="w-12 h-12 bg-[#1B365D] rounded-xl flex items-center justify-center"><Shield className="w-6 h-6 text-white" /></div><div><h2 className="font-semibold text-lg">Supervisora</h2><p className="text-white/60 group-hover:text-[#1B365D]/70 text-sm">Painel gerencial e gestão de estagiários</p></div></div>
+            <div className="flex items-center gap-4"><div className="w-12 h-12 bg-[#1B365D] rounded-xl flex items-center justify-center"><Shield className="w-6 h-6 text-white" /></div><div><h2 className="font-semibold text-lg text-white group-hover:text-[#1B365D]">Supervisora</h2><p className="text-white/60 group-hover:text-[#1B365D]/70 text-sm">Painel gerencial e gestão de estagiários</p></div></div>
           </button>
         </div>
         <p className="text-center text-white/30 text-xs mt-8">Sistema de Estágio © 2026</p>
