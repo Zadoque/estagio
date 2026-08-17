@@ -37,11 +37,12 @@ function hashValue(value: string): string {
 }
 
 function getClientIp(request: any): string {
+  if (request.rawRequest.ip) return request.rawRequest.ip;
   const forwarded = request.rawRequest.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded) return forwarded.split(",")[0].trim();
+  if (typeof forwarded === "string" && forwarded) return forwarded.split(",").at(-1)?.trim() || "unknown";
   const realIp = request.rawRequest.headers["x-real-ip"];
   if (typeof realIp === "string" && realIp) return realIp.trim();
-  return request.rawRequest.ip || "unknown";
+  return "unknown";
 }
 
 function requireSupervisor(request: any): string {
@@ -79,7 +80,10 @@ export const registerPunch = functions.https.onCall(async (request) => {
       const windowElapsed = now.toMillis() - windowStart;
       const requestCount = windowElapsed >= 60000 ? 0 : (ipLimit?.count ?? 0);
       if (requestCount >= 10) throw new functions.https.HttpsError("resource-exhausted", "Muitas tentativas deste computador. Aguarde um minuto e tente novamente.", {retryAfterSeconds: Math.ceil((60000 - windowElapsed) / 1000)});
-      transaction.set(ipLimitRef, {count: requestCount + 1, windowStart: requestCount === 0 ? now : ipLimit.windowStart, updatedAt: now});
+
+      // If the current one-minute window expired (or no document exists), start a new window now.
+      const nextWindowStart = requestCount === 0 ? now : ipLimit!.windowStart;
+      transaction.set(ipLimitRef, {count: requestCount + 1, windowStart: nextWindowStart, updatedAt: now});
 
       if (!userDoc) throw new functions.https.HttpsError("not-found", "PIN nao encontrado.");
       const user = userDoc.data();
