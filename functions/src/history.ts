@@ -1,5 +1,5 @@
 import * as functions from "firebase-functions";
-import {onCreate} from "firebase-functions/v2/firestore";
+import {onDocumentCreated} from "firebase-functions/firestore";
 import * as admin from "firebase-admin";
 import {format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isAfter} from "date-fns";
 
@@ -78,8 +78,8 @@ async function rebuildWeeks(userId: string, days: any[]) {
   if (grouped.size) await batch.commit();
 }
 
-export const refreshHistorySummaries = onCreate("punches/{punchId}", async snapshot => {
-  const data = snapshot.data();
+export const refreshHistorySummaries = onDocumentCreated("punches/{punchId}", async event => {
+  const data = event.data?.data();
   if (!data?.userId || !data?.date) return;
   const user = await db.collection("users").doc(data.userId).get();
   const startDate = user.data()?.startDate ?? data.date;
