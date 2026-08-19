@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import {format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isBefore, isAfter} from "date-fns";
+import {format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isAfter} from "date-fns";
 
 const db = admin.firestore();
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -50,12 +50,7 @@ async function buildDays(userId: string, start: Date, end: Date, startDate: stri
     const balance = rawBalance + compensated;
     const previousCarry = carry;
     carry = Math.max(0, carry + rawBalance);
-    days.push({
-      date, weekday: DAY_NAMES[day.getDay()], expected, worked, approvedAbonoMinutes: approved,
-      required, rawBalance, compensatedMinutes: compensated, balance,
-      carryIn: previousCarry, carryOut: carry,
-      status: approved >= expected && expected > 0 ? "abono" : rawBalance >= 0 ? "positive" : "negative",
-    });
+    days.push({date, weekday: DAY_NAMES[day.getDay()], expected, worked, approvedAbonoMinutes: approved, required, rawBalance, compensatedMinutes: compensated, balance, carryIn: previousCarry, carryOut: carry, status: approved >= expected && expected > 0 ? "abono" : rawBalance >= 0 ? "positive" : "negative"});
   }
   return days;
 }
@@ -82,7 +77,7 @@ async function rebuildWeeks(userId: string, days: any[]) {
   if (grouped.size) await batch.commit();
 }
 
-export const refreshHistorySummaries = functions.firestore.document("punches/{punchId}").onCreate(async snapshot => {
+export const refreshHistorySummaries = functions.firestore.onCreate("punches/{punchId}", async snapshot => {
   const data = snapshot.data();
   if (!data?.userId || !data?.date) return;
   const user = await db.collection("users").doc(data.userId).get();
@@ -157,7 +152,6 @@ export const listAbonoRequests = functions.https.onCall(async request => {
   const caller = await db.collection("users").doc(request.auth.uid).get();
   const userId = String(request.data?.userId ?? request.auth.uid);
   if (request.auth.uid !== userId && caller.data()?.role !== "supervisora") throw new functions.https.HttpsError("permission-denied", "Sem permissão.");
-  let q = db.collection("abonoRequests").where("userId", "==", userId);
-  const snap = await q.get();
+  const snap = await db.collection("abonoRequests").where("userId", "==", userId).get();
   return snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)));
 });
