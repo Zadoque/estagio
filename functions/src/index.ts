@@ -5,7 +5,7 @@ process.env.TZ = "America/Sao_Paulo";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {createHash, randomBytes} from "crypto";
-import {format, startOfWeek, endOfWeek, eachDayOfInterval, subWeeks, parseISO, isBefore} from "date-fns";
+import {format, startOfWeek, eachDayOfInterval, subWeeks, parseISO, isBefore} from "date-fns";
 
 admin.initializeApp();
 const db = admin.firestore();
