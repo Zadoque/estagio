@@ -114,3 +114,5 @@ export const getDashboardData = functions.https.onCall(async (request) => {
     return {userData: {id: userId, name: userData?.name, startDate: userData?.startDate, qrCode: userData?.qrCode}, totalBalance, todayRecords, daySummaries: summaries.reverse()};
   } catch (error) { console.error("Erro na funcao getDashboardData:", error); if (error instanceof functions.https.HttpsError) throw error; throw new functions.https.HttpsError("internal", "Erro ao processar os dados do painel."); }
 });
+
+export * from "./history";
