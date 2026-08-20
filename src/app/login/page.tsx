@@ -40,7 +40,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#1B365D] flex items-center justify-center p-4">
       <form onSubmit={handleEmailLogin} className="w-full max-w-sm p-8 bg-white rounded-3xl shadow-2xl border-t-8 border-[#F2A900] space-y-4">
-        <div className="text-center mb-5"><div className="inline-flex items-center justify-center w-14 h-14 bg-[#2A2A86] rounded-2xl mb-3"><span className="text-[#F2A900] font-black text-xl">UENF</span></div><h1 className="text-2xl font-bold text-[#1B365D]">Controle de Ponto</h1><p className="text-[#1B365D]/60 text-sm mt-1">Acesso ao sistema de estágio</p></div>
+        <div className="text-center mb-5"><div className="inline-flex items-center justify-center w-14 h-14 bg-[#2A2A86] rounded-2xl mb-3"><span className="text-[#F2A900] font-black text-xl" style={{fontFamily: '"Times New Roman", Times, serif'}}>UENF</span></div><h1 className="text-2xl font-bold text-[#1B365D]">Controle de Ponto</h1><p className="text-[#1B365D]/60 text-sm mt-1">Acesso ao sistema de estágio</p></div>
         {error && <p className="bg-red-50 text-red-700 p-3 rounded-xl text-sm">{error}</p>}
         {message && <p className="bg-green-50 text-green-700 p-3 rounded-xl text-sm">{message}</p>}
         <label className="block text-sm font-medium text-[#1B365D]">E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full border border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-[#F2A900] outline-none" required /></label>
