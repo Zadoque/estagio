@@ -92,6 +92,10 @@ export default function DashboardPage({ params }: { params: Promise<{ userId: st
     }
   };
 
+  const handleOpenHistory = () => {
+    router.push(`/historico`);
+  };
+
   if (loading) return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">Carregando painel...</div>;
   if (!userData) return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">Acesso Negado ou Usuário Inexistente.</div>;
 
@@ -110,10 +114,19 @@ export default function DashboardPage({ params }: { params: Promise<{ userId: st
               <p className="text-slate-400 text-xs">Estagiário</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
-            <LogOut className="w-4 h-4" />
-            Sair
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleOpenHistory}
+              className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm"
+            >
+              <Calendar className="w-4 h-4" />
+              Histórico
+            </button>
+            <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
+              <LogOut className="w-4 h-4" />
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 
