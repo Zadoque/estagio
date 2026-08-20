@@ -89,10 +89,28 @@ export const getDashboardData = functions.https.onCall(async (request) => {
   try {
     const callerRef = await db.collection("users").doc(request.auth.uid).get(); const callerData = callerRef.data(); if (request.auth.uid !== userId && callerData?.role !== "supervisora") throw new functions.https.HttpsError("permission-denied", "Voce nao tem permissao para ver este painel.");
     const now = new Date(); const userDoc = await db.collection("users").doc(userId).get(); if (!userDoc.exists) throw new functions.https.HttpsError("not-found", "Usuario nao encontrado."); const userData = userDoc.data();
-    const internshipStart = userData?.startDate ? parseISO(userData.startDate + "T00:00:00") : startOfWeek(subWeeks(now, 3), {weekStartsOn: 1}); const fourWeeksAgo = startOfWeek(subWeeks(now, 3), {weekStartsOn: 1}); const weekStart = isBefore(fourWeeksAgo, internshipStart) ? internshipStart : fourWeeksAgo; const weekEnd = endOfWeek(now, {weekStartsOn: 1});
-    const punchesSnapshot = await db.collection("punches").where("userId", "==", userId).where("timestamp", ">=", weekStart).where("timestamp", "<=", weekEnd).get(); const allRecords = punchesSnapshot.docs.map((doc) => { const data = doc.data(); const recordDate = data.timestamp.toDate(); return {id: doc.id, ...data, timestamp: recordDate.toISOString(), date: format(recordDate, "yyyy-MM-dd")}; });
-    const today = format(now, "yyyy-MM-dd"); const todayRecords = allRecords.filter((r: any) => r.date === today); const days = eachDayOfInterval({start: weekStart, end: weekEnd}); const summaries = []; let totalBalance = 0;
-    for (const day of days) { if (isBefore(day, internshipStart)) continue; if (["saturday", "sunday"].includes(DAY_NAMES[day.getDay()])) continue; const dateStr = format(day, "yyyy-MM-dd"); const dayRecords = allRecords.filter((r: any) => r.date === dateStr); const expected = getDayExpectedMinutes(day); const worked = calculateDailyMinutes(dayRecords); const dayBalance = worked - expected; if (day <= now) totalBalance += dayBalance; summaries.push({date: day.toISOString(), dateStr, expected, worked, balance: dayBalance, records: dayRecords}); }
+    const internshipStart = userData?.startDate ? parseISO(userData.startDate + "T00:00:00") : startOfWeek(subWeeks(now, 3), {weekStartsOn: 1});
+    const fourWeeksAgo = startOfWeek(subWeeks(now, 3), {weekStartsOn: 1});
+    const weekStart = isBefore(fourWeeksAgo, internshipStart) ? internshipStart : fourWeeksAgo;
+    const weekEnd = now; // evita considerar dias futuros no saldo
+    const punchesSnapshot = await db.collection("punches").where("userId", "==", userId).where("timestamp", ">=", weekStart).where("timestamp", "<=", weekEnd).get();
+    const allRecords = punchesSnapshot.docs.map((doc) => { const data = doc.data(); const recordDate = data.timestamp.toDate(); return {id: doc.id, ...data, timestamp: recordDate.toISOString(), date: format(recordDate, "yyyy-MM-dd")}; });
+    const today = format(now, "yyyy-MM-dd");
+    const todayRecords = allRecords.filter((r: any) => r.date === today);
+    const days = eachDayOfInterval({start: weekStart, end: weekEnd});
+    const summaries = [] as any[];
+    let totalBalance = 0;
+    for (const day of days) {
+      if (isBefore(day, internshipStart)) continue;
+      if (["saturday", "sunday"].includes(DAY_NAMES[day.getDay()])) continue;
+      const dateStr = format(day, "yyyy-MM-dd");
+      const dayRecords = allRecords.filter((r: any) => r.date === dateStr);
+      const expected = getDayExpectedMinutes(day);
+      const worked = calculateDailyMinutes(dayRecords);
+      const dayBalance = worked - expected;
+      totalBalance += dayBalance;
+      summaries.push({date: day.toISOString(), dateStr, expected, worked, balance: dayBalance, records: dayRecords});
+    }
     return {userData: {id: userId, name: userData?.name, startDate: userData?.startDate, qrCode: userData?.qrCode}, totalBalance, todayRecords, daySummaries: summaries.reverse()};
   } catch (error) { console.error("Erro na funcao getDashboardData:", error); if (error instanceof functions.https.HttpsError) throw error; throw new functions.https.HttpsError("internal", "Erro ao processar os dados do painel."); }
 });
