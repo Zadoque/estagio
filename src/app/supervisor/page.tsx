@@ -11,7 +11,8 @@ import {auth, functions} from "@/lib/firebase";
 import {getAllPunches} from "@/lib/firestore";
 import {calculateDailyMinutes, getDayExpectedMinutes, formatMinutes, formatMinutesAbs, type PunchRecord} from "@/lib/schedule";
 
-import type {Abono} from "@/components/InternshipHistory";
+// Abonos não precisam de um tipo reutilizado, definimos localmente
+export type Abono = {id:string; userId:string; userName:string; date:string; minutes:number; reason:string; status:string};
 
 // callables
 const listInterns = httpsCallable<null, Intern[]>(functions, "listInterns");
