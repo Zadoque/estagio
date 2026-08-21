@@ -67,10 +67,11 @@ async function rebuildWeeks(userId: string, days: any[]) {
   days.forEach(d => { const key = weekId(userId, parseISO(d.date)); const list = grouped.get(key) ?? []; list.push(d); grouped.set(key, list); });
   const batch = db.batch();
   for (const [id, list] of grouped) {
+    list.sort((a, b) => String(a.date).localeCompare(String(b.date)));
     const worked = list.reduce((n, d) => n + d.worked, 0);
     const expected = list.reduce((n, d) => n + d.expected, 0);
     const abono = list.reduce((n, d) => n + d.approvedAbonoMinutes, 0);
-    const balance = list[list.length - 1]?.carryOut ?? 0;
+    const balance = list.reduce((n, d) => n + d.balance, 0);
     const compensated = list.reduce((n, d) => n + d.compensatedMinutes, 0);
     const compensationDates = list.filter(d => d.compensatedMinutes > 0).map(d => d.date);
     batch.set(db.collection("weeklySummaries").doc(id), {userId, week: id.split("_").pop(), weekStart: format(startOfWeek(parseISO(list[0].date), {weekStartsOn: 1}), "yyyy-MM-dd"), weekEnd: format(endOfWeek(parseISO(list[0].date), {weekStartsOn: 1}), "yyyy-MM-dd"), workedMinutes: worked, expectedMinutes: expected, approvedAbonoMinutes: abono, compensatedMinutes: compensated, balance, compensationDates, updatedAt: admin.firestore.FieldValue.serverTimestamp()});
