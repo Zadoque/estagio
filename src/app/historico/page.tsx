@@ -10,5 +10,18 @@ export default function MyHistoryPage(){
   const router=useRouter(); const [uid,setUid]=useState<string|null>(null);
   useEffect(()=>onAuthStateChanged(auth,user=>{if(!user) router.push("/login"); else setUid(user.uid);}),[router]);
   if(!uid) return <main className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-500">Carregando...</main>;
-  return <main className="min-h-screen bg-slate-100 p-4"><div className="max-w-5xl mx-auto py-4"><InternshipHistory userId={uid}/></div></main>;
+  return (
+    <main className="min-h-screen bg-slate-100 p-4">
+      <div className="max-w-5xl mx-auto py-4 space-y-4">
+        <button
+          type="button"
+          onClick={() => router.push(`/dashboard/${uid}`)}
+          className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+        >
+          Voltar para o dashboard
+        </button>
+        <InternshipHistory userId={uid}/>
+      </div>
+    </main>
+  );
 }
