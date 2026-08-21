@@ -93,26 +93,58 @@ export const getDashboardData = functions.https.onCall(async (request) => {
     const fourWeeksAgo = startOfWeek(subWeeks(now, 3), {weekStartsOn: 1});
     const weekStart = isBefore(fourWeeksAgo, internshipStart) ? internshipStart : fourWeeksAgo;
     const weekEnd = now; // evita considerar dias futuros no saldo
-    const punchesSnapshot = await db.collection("punches").where("userId", "==", userId).where("timestamp", ">=", weekStart).where("timestamp", "<=", weekEnd).get();
-    const allRecords = punchesSnapshot.docs.map((doc) => { const data = doc.data(); const recordDate = data.timestamp.toDate(); return {id: doc.id, ...data, timestamp: recordDate.toISOString(), date: format(recordDate, "yyyy-MM-dd")}; });
+
+    // Em vez de recalcular tudo a partir de punches, usamos os dailySummaries
+    const startStr = format(weekStart, "yyyy-MM-dd");
+    const endStr = format(weekEnd, "yyyy-MM-dd");
+    const cached = await db.collection("dailySummaries")
+      .where("userId", "==", userId)
+      .where("date", ">=", startStr)
+      .where("date", "<=", endStr)
+      .get();
+
+    let days = cached.docs.map(d => d.data());
+    days.sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)));
+
+    // Banco de horas: usamos o carryOut do ultimo dia conhecido
+    const totalBalance = days.length ? Number(days[days.length - 1].carryOut ?? days[days.length - 1].balance ?? 0) : 0;
+
+    // Registros de hoje ainda usam punches diretamente
+    const punchesSnapshot = await db.collection("punches")
+      .where("userId", "==", userId)
+      .where("timestamp", ">=", weekStart)
+      .where("timestamp", "<=", weekEnd)
+      .get();
+    const allRecords = punchesSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      const recordDate = data.timestamp.toDate();
+      return {id: doc.id, ...data, timestamp: recordDate.toISOString(), date: format(recordDate, "yyyy-MM-dd")};
+    });
     const today = format(now, "yyyy-MM-dd");
     const todayRecords = allRecords.filter((r: any) => r.date === today);
-    const days = eachDayOfInterval({start: weekStart, end: weekEnd});
-    const summaries = [] as any[];
-    let totalBalance = 0;
-    for (const day of days) {
-      if (isBefore(day, internshipStart)) continue;
-      if (["saturday", "sunday"].includes(DAY_NAMES[day.getDay()])) continue;
-      const dateStr = format(day, "yyyy-MM-dd");
-      const dayRecords = allRecords.filter((r: any) => r.date === dateStr);
-      const expected = getDayExpectedMinutes(day);
-      const worked = calculateDailyMinutes(dayRecords);
-      const dayBalance = worked - expected;
-      totalBalance += dayBalance;
-      summaries.push({date: day.toISOString(), dateStr, expected, worked, balance: dayBalance, records: dayRecords});
-    }
-    return {userData: {id: userId, name: userData?.name, startDate: userData?.startDate, qrCode: userData?.qrCode}, totalBalance, todayRecords, daySummaries: summaries.reverse()};
-  } catch (error) { console.error("Erro na funcao getDashboardData:", error); if (error instanceof functions.https.HttpsError) throw error; throw new functions.https.HttpsError("internal", "Erro ao processar os dados do painel."); }
+
+    // Historico de dias: montamos a partir dos DaySummary de dailySummaries
+    const daySummaries = days.map((d: any) => ({
+      date: d.date,
+      dateStr: d.date,
+      expected: Number(d.expected ?? 0),
+      worked: Number(d.worked ?? 0),
+      balance: Number(d.balance ?? 0),
+      approvedAbonoMinutes: Number(d.approvedAbonoMinutes ?? 0),
+      status: d.status,
+    })).reverse();
+
+    return {
+      userData: {id: userId, name: userData?.name, startDate: userData?.startDate, qrCode: userData?.qrCode},
+      totalBalance,
+      todayRecords,
+      daySummaries,
+    };
+  } catch (error) {
+    console.error("Erro na funcao getDashboardData:", error);
+    if (error instanceof functions.https.HttpsError) throw error;
+    throw new functions.https.HttpsError("internal", "Erro ao processar os dados do painel.");
+  }
 });
 
 export * from "./history";
