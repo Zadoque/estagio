@@ -49,6 +49,13 @@ export default function LoginPage() {
         <button type="button" onClick={handleForgotPassword} className="w-full text-sm text-[#2A2A86] hover:text-[#F2A900] font-medium">Esqueci minha senha / criar senha</button>
         <div className="flex items-center"><div className="flex-1 border-t border-gray-200" /><span className="px-3 text-gray-400 text-xs">OU</span><div className="flex-1 border-t border-gray-200" /></div>
         <button type="button" onClick={handleGoogleLogin} className="w-full bg-white border border-gray-200 text-[#1B365D] font-semibold py-3 rounded-xl hover:bg-gray-50 transition">Continuar com Google</button>
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="w-full mt-2 text-sm text-[#1B365D] hover:text-[#F2A900] font-medium"
+        >
+          Voltar ao menu
+        </button>
       </form>
     </main>
   );
