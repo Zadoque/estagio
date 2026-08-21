@@ -5,27 +5,10 @@ process.env.TZ = "America/Sao_Paulo";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {createHash, randomBytes} from "crypto";
-import {format, startOfWeek, eachDayOfInterval, subWeeks, parseISO, isBefore} from "date-fns";
+import {format, startOfWeek, subWeeks, parseISO, isBefore} from "date-fns";
 
 admin.initializeApp();
 const db = admin.firestore();
-
-const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-const EXPECTED_MINUTES_BY_DAY: Record<string, number> = {monday: 240, tuesday: 360, wednesday: 240, thursday: 360, friday: 120};
-
-function getDayExpectedMinutes(day: Date): number { return EXPECTED_MINUTES_BY_DAY[DAY_NAMES[day.getDay()]] ?? 0; }
-
-function calculateDailyMinutes(records: any[]): number {
-  if (!records?.length) return 0;
-  let totalMinutes = 0;
-  let lastEntry: Date | null = null;
-  const sorted = [...records].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  for (const record of sorted) {
-    if (record.type === "entry") lastEntry = new Date(record.timestamp);
-    else if (record.type === "exit" && lastEntry) { totalMinutes += (new Date(record.timestamp).getTime() - lastEntry.getTime()) / 60000; lastEntry = null; }
-  }
-  return Math.round(totalMinutes);
-}
 
 function hashValue(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 function getClientIp(request: any): string {
